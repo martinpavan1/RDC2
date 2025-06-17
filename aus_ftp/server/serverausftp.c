@@ -1,15 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include "serverdtp.h"
+#include "serverpi.h"
+#include "serverausftp.h"
 
-#define VERSION "1.0"
-#define PTODEFAULT 21
+#define DEFAULT_PORT 21
 
 
 
@@ -27,7 +30,7 @@ int main(int argc, char const *argv[]){
         port = atoi(argv[1]);
 
     }else{
-        port = PTODEFAULT; // puerto default ftp
+        port = DEFAULT_PORT;
     }
     
     if(port == 0){
@@ -35,31 +38,88 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    printf("%d\n", port);
-
-    printf("devuelve %d\n",check_credentials("test","pepe"));
-
-
     int mastersocket, slavesocket;
     struct sockaddr_in masteraddr, slaveaddr;
     socklen_t slaveaddrlen;
+    char user_name[BUFFSIZE];
+    char user_pass[BUFFSIZE];
+    char buffer[BUFFSIZE];
+    char command[BUFFSIZE];
+    int data_len;
 
     mastersocket = socket(AF_INET, SOCK_STREAM, 0);
-
     masteraddr.sin_family = AF_INET;
-    masteraddr.sin_addr.s_addr = INADDR_ANY;
+    masteraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     masteraddr.sin_port = htons(port);
 
 
     bind(mastersocket, (struct sockaddr *) &masteraddr, sizeof(masteraddr));
-    
     listen(mastersocket, 5);
 
     while(true){
+
         slaveaddrlen = sizeof(slaveaddr);
         slavesocket = accept(mastersocket, (struct sockaddr *) &slaveaddr, &slaveaddrlen);
-        send(slavesocket, "220 1", sizeof("220 1"), 0);
-        printf("funciono\n");
+        //printf("%s\n", MSG_220);
+
+        if (send(slavesocket, MSG_220, sizeof(MSG_220) - 1, 0) != sizeof(MSG_220)- 1){ 
+            close(slavesocket);
+            fprintf(stderr, "Error: no se pudo enviar el mensaje.\n");
+            break;
+        }
+
+        if(recv_cmd(slavesocket, command, user_name) != 0 ){
+            close(slavesocket);
+            fprintf(stderr, "Error: no se pudo recibir el comanod USER.\n");
+            break;
+        }
+        printf("%s", command);
+
+        if(strcmp(command, "USER") != 0){
+            close(slavesocket);
+            fprintf(stderr, "Error: se esperaba el comando USER.\n");
+            break;
+        }
+
+
+        data_len = snprintf(buffer, BUFFSIZE, MSG_331, user_name);
+        if(send(slavesocket, buffer, data_len, 0) < 0) {
+            close(slavesocket);
+            fprintf(stderr, "Error: no se pudo enviar el mnensaje MSG_331.\n");
+            break;
+        }
+
+        if (recv_cmd(slavesocket, command, user_pass) != 0){
+            close(slavesocket);
+            fprintf(stderr, "Error: no se pudo recibir el comando PASS.\n");
+            break;
+        } 
+
+        if(strcmp(command, "PASS") != 0){
+            close(slavesocket);
+            fprintf(stderr, "Error: se esperaba el comando PASS.\n");
+            break;
+        }
+
+        if(!check_credentials(user_name, user_pass)){
+            data_len = snprintf(buffer, BUFFSIZE, MSG_530);
+            if(send(slavesocket, buffer, data_len, 0) < 0) {
+                close(slavesocket);
+                fprintf(stderr, "Error: no se pudo enviar el mnensaje MSG_530.\n");
+                break;
+            }
+            close(slavesocket);
+        }
+        data_len = snprintf(buffer, BUFFSIZE, MSG_230, user_name);
+        if(send(slavesocket, buffer, data_len, 0) < 0){
+            close(slavesocket);
+            fprintf(stderr, "Error: no se pudo enviar el mensaje MSG_230");
+            break;
+        }
+        
+        //  comenzar con la implementacion de comandos
+
+
     }
 
     close(mastersocket);

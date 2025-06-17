@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "buffer": "c",
+        "socket": "c"
+    }
+}

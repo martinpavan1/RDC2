@@ -18,7 +18,7 @@ bool check_credentials(char *user, char *pass) {
     // check if it is present in any ftpusers line
     file = fopen(path, "r");
     if (file == NULL) {
-        fprintf(stderr,"error opening %s\n", path);
+        fprintf(stderr,"Error abriendo archivo de usuarios.\n");
         return false;
     }
 

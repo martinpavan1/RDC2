@@ -1,9 +1,10 @@
-
-
 #ifndef SERVERAUS_H
 #define SERVERAUS_H
 
-#define BUFSIZE 512
+#include "serverdtp.h"
+#include "serverpi.h"
+
+#define BUFFSIZE 512
 
 
 #endif
