@@ -117,7 +117,48 @@ int main(int argc, char const *argv[]){
             break;
         }
         
-        //  comenzar con la implementacion de comandos
+
+        //  BUCLE COMANDOS
+        while(true){
+            memset(command, 0, BUFFSIZE);
+            memset(buffer, 0, BUFFSIZE);
+
+            if(recv_cmd(slavesocket, command, buffer) != 0){
+                close(slavesocket);
+                fprintf(stderr,"Error: no se recibio el comando.\r\n");
+                break;
+            }
+            if(strcmp(command, "QUIT") == 0){                                   // COMANDO QUIT
+                if(send(slavesocket, MSG_221, sizeof(MSG_221)-1, 0) < 0){
+                    close(slavesocket);
+                    fprintf(stderr, "Error: no se pudo enviar el mensaje MSG_221.\r\n");
+                    break;
+                }
+                close(slavesocket);
+                break;
+            }
+
+            if(strcmp(command, "SYST") == 0){                                   // COMANDO SYST
+                if(send(slavesocket, MSG_215, sizeof(MSG_215)-1, 0) < 0){
+                    close(slavesocket);
+                    fprintf(stderr,"Error: no se pudo enviar el mensaje MSG_215\r\n");
+                    break;
+                }
+                continue;
+            }
+
+            if(strcmp(command, "FEAT") == 0){                                   // COMANDO FEAT
+                if(send(slavesocket, MSG_FEAT, sizeof(MSG_FEAT)-1, 0) < 0){
+                    close(slavesocket);
+                    fprintf(stderr, "Erro: no se pudo enviar el mensaje FEAT\r\n");
+                    break;
+                }
+                continue;
+            }
+
+
+
+        }
 
 
     }
