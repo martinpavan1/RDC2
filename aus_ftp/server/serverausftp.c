@@ -33,7 +33,7 @@ int main(int argc, char const *argv[]){
         port = DEFAULT_PORT;
     }
     
-    if(port == 0){
+    if(port == 0 || port > 65535){
         fprintf(stderr, "Error: puerto invalido \n");
         return 1;
     }
@@ -73,14 +73,12 @@ int main(int argc, char const *argv[]){
             fprintf(stderr, "Error: no se pudo recibir el comanod USER.\n");
             break;
         }
-        printf("%s", command);
 
         if(strcmp(command, "USER") != 0){
             close(slavesocket);
             fprintf(stderr, "Error: se esperaba el comando USER.\n");
-            break;
+            continue;
         }
-
 
         data_len = snprintf(buffer, BUFFSIZE, MSG_331, user_name);
         if(send(slavesocket, buffer, data_len, 0) < 0) {
@@ -109,6 +107,7 @@ int main(int argc, char const *argv[]){
                 break;
             }
             close(slavesocket);
+            continue;
         }
         data_len = snprintf(buffer, BUFFSIZE, MSG_230, user_name);
         if(send(slavesocket, buffer, data_len, 0) < 0){
@@ -120,8 +119,6 @@ int main(int argc, char const *argv[]){
 
         //  BUCLE COMANDOS
         while(true){
-            memset(command, 0, BUFFSIZE);
-            memset(buffer, 0, BUFFSIZE);
 
             if(recv_cmd(slavesocket, command, buffer) != 0){
                 close(slavesocket);
@@ -148,17 +145,26 @@ int main(int argc, char const *argv[]){
             }
 
             if(strcmp(command, "FEAT") == 0){                                   // COMANDO FEAT
-                if(send(slavesocket, MSG_FEAT, sizeof(MSG_FEAT)-1, 0) < 0){
+                if(send(slavesocket, MSG_502, sizeof(MSG_502)-1, 0) < 0){
                     close(slavesocket);
-                    fprintf(stderr, "Erro: no se pudo enviar el mensaje FEAT\r\n");
+                    fprintf(stderr, "Erro: no se pudo enviar el mensaje 502\r\n");
                     break;
                 }
                 continue;
             }
+            
+             if(strcmp(command, "PORT") == 0){                                   // COMANDO PORT
+                int h1, h2, h3, h4, p1, p2;
+                if(sscanf(buffer, "%d,%d,%d,%d,%d,%d", &h1, &h2, &h3, &h4, &p1, &p2) != 6){
+                    if(send(slavesocket, MSG_501, sizeof(MSG_501)-1, 0) < 0){
+                        close(slavesocket);
+                        fprintf(stderr, "Error: no se pudo enviar el mensjae 501\r\n");
+                        break;
+                    }
+                }
+            }
 
-
-
-        }
+        }//Fin bucle comandos
 
 
     }

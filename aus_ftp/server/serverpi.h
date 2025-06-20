@@ -14,7 +14,7 @@
 #define MSG_226 "226 Transfer complete\r\n"
 #define MSG_502 "502 Command not implemented\r\n"
 #define MSG_215 "215 UNIX Type: L8\r\n"
-#define MSG_FEAT "UTF8\r\n"
+#define MSG_501 "501 Syntax error in parameters or arguments\r\n"
 
 static const char *valid_commands[] = {
   "USER", "PASS", "ACCT", "CWD", "CDUP", "SMNT",

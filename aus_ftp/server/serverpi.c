@@ -42,7 +42,8 @@ int recv_cmd(int socketDescriptor, char *operation, char *param) {
 
     buffer[strcspn(buffer, "\r\n")] = 0;
     token = strtok(buffer, " ");
-    if(token == NULL || strlen(token) < 3 || (args_number == is_valid_command(token)) < 0){
+    args_number = is_valid_command(token);
+    if(token == NULL || strlen(token) < 3 || args_number < 0){
         fprintf(stderr, "Error: comando no válido.\n");
         return 1;
     }
