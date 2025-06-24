@@ -76,8 +76,36 @@ void handle_PORT(const char *args) {
   (void)args;
   (void)sess;
 
-  // Placeholder
-}
+  if (!args || strlen(args) == 0) {
+    safe_dprintf(sess->control_sock, MSG_501); // Syntax error in parameters
+    return;
+  }
+
+  int h1, h2, h3, h4, p1, p2;
+  if(sscanf(args, "%d,%d,%d,%d,%d,%d", &h1, &h2, &h3, &h4, &p1, &p2) != 6 ||
+      (h1 < 0 || h1 > 255) || (h2 < 0 || h2 > 255) ||
+      (h3 < 0 || h3 > 255) || (h4 < 0 || h4 > 255) ||
+      (p1 < 0 || p1 > 255) || (p2 < 0 || p2 > 255)) 
+      {
+        safe_dprintf(sess->control_sock, MSG_501); // Syntax error in parameters
+        return;
+      }
+
+  char ip[INET_ADDRSTRLEN];
+  snprintf(ip, sizeof(ip), "%d.%d.%d.%d", h1, h2, h3, h4);
+
+  sess->data_addr.sin_family = AF_INET; //IPv4
+  sess->data_addr.sin_port = htons(p1*256 + p2); // Set port
+
+  if(inet_pton(AF_INET, ip, &sess->data_addr.sin_addr) <= 0){ // IP to binary
+    safe_dprintf(sess->control_sock, MSG_501);
+    return;
+  }
+
+  safe_dprintf(sess->control_sock, MSG_200); // Command okey
+
+
+} // Finish PORT
 
 void handle_RETR(const char *args) {
   ftp_session_t *sess = session_get();
@@ -100,5 +128,5 @@ void handle_NOOP(const char *args) {
   (void)args;
   (void)sess;
 
-  // Placeholder
+  safe_dprintf(sess->control_sock, MSG_200);
 }
