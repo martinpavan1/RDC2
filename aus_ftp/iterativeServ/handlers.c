@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 void handle_USER(const char *args) {
   ftp_session_t *sess = session_get();
@@ -68,8 +69,19 @@ void handle_TYPE(const char *args) {
   (void)args;
   (void)sess;
 
-  // Placeholder
-}
+  if (!args || strlen(args) == 0) {
+    safe_dprintf(sess->control_sock, MSG_501); // Syntax error in parameters
+    return;
+  }
+
+  if(args[0] != 'I'){
+    safe_dprintf(sess->control_sock, MSG_504); // Command not implemented for that parameter
+    return;
+  }
+
+  safe_dprintf(sess->control_sock, MSG_200); // Command okey
+
+} // Finish TYPE
 
 void handle_PORT(const char *args) {
   ftp_session_t *sess = session_get();
@@ -101,7 +113,7 @@ void handle_PORT(const char *args) {
     safe_dprintf(sess->control_sock, MSG_501);
     return;
   }
-
+  printf("FTP client ask for active connection at %s:%d\n", ip, ntohs(sess->data_addr.sin_port));
   safe_dprintf(sess->control_sock, MSG_200); // Command okey
 
 
@@ -112,21 +124,95 @@ void handle_RETR(const char *args) {
   (void)args;
   (void)sess;
 
-  // Placeholder
-}
+  if (!args || strlen(args) == 0) {
+    safe_dprintf(sess->control_sock, MSG_501); // Error in parameters
+    return;
+  }
+
+  if(sess->data_addr.sin_port == 0){
+    safe_dprintf(sess->control_sock, MSG_503); // Need PORT first
+    return;
+  }
+  
+  
+  FILE *file = fopen(args, "rb");
+  if(!file){
+    safe_dprintf(sess->control_sock, MSG_550, args); // File unavailable
+    return;
+  }
+  safe_dprintf(sess->control_sock, MSG_150); // File status okay, about to open data connection
+  
+  fseek(file, 0, SEEK_END);
+  long filesize = ftell(file);
+  rewind(file);
+  safe_dprintf(sess->control_sock, MSG_213, args, filesize); // File status
+  safe_dprintf(sess->control_sock, "File %s - Size %ld\r\n", args, filesize);
+
+  int datasock = socket(AF_INET, SOCK_STREAM, 0); // IPv4, TCP
+  if(connect(datasock, (struct sockaddr *)&sess->data_addr, sizeof(sess->data_addr)) < 0){
+    safe_dprintf(sess->control_sock, MSG_425); // Can't open data connection
+    fclose(file);
+    return;
+  }
+  safe_dprintf(sess->control_sock, MSG_125); // Data connection already open
+  
+  char databuff[BUFFER_SIZE];
+  ssize_t bytes;
+  while((bytes = fread(databuff, 1, sizeof(databuff), file)) > 0){
+    if(send(datasock, databuff, bytes, 0) != bytes){
+      perror("Error sending file: ");
+      break;
+    }
+  }
+
+  fclose(file);
+  close(datasock);
+  safe_dprintf(sess->control_sock, MSG_226);
+} // Finish RETR
 
 void handle_STOR(const char *args) {
   ftp_session_t *sess = session_get();
   (void)args;
   (void)sess;
 
-  // Placeholder
-}
+  if (!args || strlen(args) == 0) {
+    safe_dprintf(sess->control_sock, MSG_501); // Error in parameters
+    return;
+  }
+  if(sess->data_addr.sin_port == 0){
+    safe_dprintf(sess->control_sock, MSG_503); // Need PORT first
+    return;
+  }
+
+  int datasock = socket(AF_INET, SOCK_STREAM, 0); // IPv4, TCP
+  if(connect(datasock, (struct sockaddr *)&sess->data_addr, sizeof(sess->data_addr)) < 0){
+    safe_dprintf(sess->control_sock, MSG_425); // Can't open data connection
+    return;
+  }
+  safe_dprintf(sess->control_sock, MSG_125); // Data connection already open
+
+  
+  FILE *file = fopen(args, "wb");
+  if(!file){
+    safe_dprintf(sess->control_sock, MSG_550, args); // File unavailable
+    return;
+  }
+  
+  char databuff[BUFFER_SIZE];
+  ssize_t bytes;
+  while((bytes = recv(datasock, databuff, sizeof(databuff), 0)) > 0){
+    fwrite(databuff, 1, bytes, file);
+  }
+
+  fclose(file);
+  close(datasock);
+
+  safe_dprintf(sess->control_sock, MSG_226);
+} // Finish STOR
 
 void handle_NOOP(const char *args) {
   ftp_session_t *sess = session_get();
   (void)args;
-  (void)sess;
-
-  safe_dprintf(sess->control_sock, MSG_200);
+  //(void)sess;
+  safe_dprintf(sess->control_sock, MSG_200); // Command okey
 }
